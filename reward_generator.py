@@ -1,5 +1,3 @@
-#!\usr\bin\env python3
-
 '''
 Generate samples of synthetic data set
 '''
