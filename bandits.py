@@ -1,16 +1,13 @@
-'''
-Classes and methods for multi-armed bandits
-'''
+"""Multi-armed bandits"""
 
 # Author: C. Franzen
+# License: MIT
 
 import numpy as np
 
 
-class SoftMax:
-    '''
-    The softmax bandit algorithm
-    '''
+class SoftMax(object):
+    '''The softmax bandit algorithm.'''
     def __init__(self, counts=None, values=None, tau_scale=1e3):
         self._t = 1
         self.tau_scale = tau_scale
@@ -24,9 +21,7 @@ class SoftMax:
             self.n_arms = 0
 
     def get_probs(self):
-        '''
-        returns probabilites according to the softmax function
-        '''
+        '''Returns probabilites according to the softmax function.'''
         # anneal the tau parameter
         tau = self.tau_scale / self._t
         z = np.sum([np.exp(v / tau) for v in self._values])
@@ -34,14 +29,13 @@ class SoftMax:
         return probs
 
     def initialize(self, n_arms: int):
-        '''
-        initializes a blank bandit
-        '''
+        '''Initializes a blank bandit.'''
         self._counts = np.zeros(n_arms, dtype=int)
         self._values = np.ones(n_arms, dtype=float)
         self.n_arms = n_arms
 
-    def results_report(self, action_labels=None):
+    def state_report(self, action_labels=None):
+        '''Prettily prints bandit state.'''
         print('Softmax Results\n' + '-' * 20)
         print('{} total observations over {} actions'.format(sum(self._counts),
                                                              self.n_arms))
@@ -61,17 +55,14 @@ class SoftMax:
         print('BEST ACTION: {}'.format(best_arm))
 
     def select_arm(self):
-        '''
-        selects an arm based upon softmax probabilties
-        '''
+        '''Selects an arm based upon softmax probabilties.'''
         probs = self.get_probs()
         self._t += 1
         return np.random.choice(np.arange(self.n_arms), p=probs)
 
     def update(self, chosen_arm: int, reward: float):
-        '''
-        given a reward for a pulled arm, updates softmax counts and values
-        '''
+        '''Given a pulled arm and observed reward,
+           updates softmax counts and values.'''
         self._counts[chosen_arm] = self._counts[chosen_arm] + 1
         n = self._counts[chosen_arm]
         value = self._values[chosen_arm]

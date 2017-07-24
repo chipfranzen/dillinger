@@ -1,16 +1,15 @@
-'''
-Generate samples of synthetic data set
-'''
+"""Generate samples of synthetic data set"""
 
 # Author: C. Franzen
+# License: MIT
 
-import numpy as np
-from scipy import stats
-from scipy import special
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy import special
+from scipy import stats
 
 
-class RewardGenerator:
+class RewardGenerator(object):
     def __init__(self,
                  min_price: float,
                  max_price: float,
@@ -27,10 +26,8 @@ class RewardGenerator:
             np.random.seed(seed)
 
     def create_spend_distributions(self, variance_level=1000):
-        '''
-        this creates high variance gamma distributions for when customers
-        decide to spend
-        '''
+        '''Creates high variance gamma distributions for when customers decide
+           to spend.'''
         self.dists = []
         for exp, prob in zip(self.expected_value, self.p):
             theta = stats.gamma(variance_level).rvs()
@@ -51,13 +48,13 @@ class RewardGenerator:
         plt.legend()
 
     def pull_arm(self, arm_index: int) -> float:
-        '''
-        returns a pull from a multi-armed bandit
+        '''Returns a pull from a multi-armed bandit
 
-        inputs:
-        arm_index: index of the arm to be pulled
+        Args:
+            arm_index: index of the arm to be pulled
 
-        output (float): observed reward
+        Returns:
+            observed reward
         '''
         if stats.bernoulli(self.p[arm_index]).rvs():
             return self.dists[arm_index].rvs()
@@ -65,10 +62,8 @@ class RewardGenerator:
             return 0
 
     def sample(self, n_draws: int):
-        '''
-        draws random samples from the reward generator by pulling arms
-        uniformly
-        '''
+        '''Draws random samples from the reward generator by pulling arms
+           uniformly.'''
         draws = np.zeros((n_draws, 2))
         for i in range(n_draws):
             price = np.random.randint(self.n_price_points)
@@ -77,9 +72,7 @@ class RewardGenerator:
         return draws
 
     def set_conversion_rates(self, x0=5, k=.7, max_conversion_rate=.1):
-        '''
-        create spend probabilities
-        '''
+        '''Sets spend probabilities and calculates expected values.'''
         self.x0 = x0  # x-value of the midpoint
         self.k = k  # steepness of the curve
         self.max_conversion_rate = max_conversion_rate
