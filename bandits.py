@@ -34,6 +34,52 @@ class SoftMax(object):
         self._values = np.ones(n_arms, dtype=float)
         self.n_arms = n_arms
 
+    def run(self,
+            actions: list,
+            reward_generator,
+            n_steps: int,
+            track_regret=False,
+            best_action=None,
+            trace_count=20):
+        '''Bandits over the given actions on the given reward generator.
+
+        Args:
+            actions: A list of actions to be considered. Entries should be
+                     indices for actions in the reward generator.
+
+            reward_generator: A RewardGenerator instance.
+
+            n_steps: Number of time steps to run the bandit.
+
+            regret: If True, tracks the regret of the bandit. If True, a best
+                    action must be provided.
+
+            best_action: Index of the best action for regret tracking.
+
+            trace_count: Number of entries in the trace.
+
+        Returns:
+            trace (np.ndarray): record of action allocation over time
+            regret_trace (np.ndarray): record of regret over time
+        '''
+        if track_regret and (best_action is None):
+            raise RuntimeError('best_action must be provided to track regret')
+        trace_interval = n_steps // trace_count
+        trace = np.zeros((trace_count, len(actions)))
+        regret_trace = np.zeros(1)
+
+        # run bandit
+        for step in range(n_steps):
+            chosen_arm = self.select_arm()
+            reward = reward_generator[chosen_arm]
+            if track_regret:
+                regret = reward_generator[best_action] - reward
+                regret_trace = np.append(regret_trace, regret)
+            self.update(chosen_arm, reward)
+            if step % trace_interval == 0:
+                trace[int(step/trace_interval), :] = self.get_probs()
+        return trace, np.cumsum(regret_trace_
+
     def state_report(self, action_labels=None):
         '''Prettily prints bandit state.'''
         print('Softmax Results\n' + '-' * 20)

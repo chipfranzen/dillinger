@@ -25,6 +25,9 @@ class RewardGenerator(object):
         if seed:
             np.random.seed(seed)
 
+    def __getitem__(self, key: int) -> float:
+        return self.pull_arm(key)
+
     def create_spend_distributions(self, variance_level=1000):
         '''Creates high variance gamma distributions for when customers decide
            to spend.'''
