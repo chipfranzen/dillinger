@@ -4,6 +4,8 @@
 # License: MIT
 
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 class SoftMax(object):
@@ -11,6 +13,8 @@ class SoftMax(object):
     def __init__(self, counts=None, values=None, tau_scale=1e3):
         self._t = 1
         self.tau_scale = tau_scale
+        self.action_trace = None
+        self.regret_trace = None
         if counts is not None:
             self._counts = np.array(counts, dtype=int)
             self._values = np.array(values, dtype=float)
@@ -33,6 +37,30 @@ class SoftMax(object):
         self._counts = np.zeros(n_arms, dtype=int)
         self._values = np.ones(n_arms, dtype=float)
         self.n_arms = n_arms
+
+    def plot_action_trace(self, best_action=None):
+        '''Plots action allocation over time'''
+        if self.action_trace is None:
+            raise RuntimeError('The bandit has not been run.')
+        trace_count = self.action_trace.shape[0]
+        sns.set_palette('cubehelix', trace_count)
+        cum_trace = self.action_trace.cumsum(axis=1)
+        plt.fill_between(np.arange(trace_count), 0, cum_trace[:, 0])
+        for i in range(mab.n_price_points-1):
+            if i == best_action:
+                plt.fill_between(np.arange(trace_count),
+                                 cum_trace[:, i],
+                                 cum_trace[:, i+1],
+                                 color='r',
+                                 label='best action')
+            else:
+                plt.fill_between(np.arange(trace_count),
+                                 cum_trace[:, i],
+                                 cum_trace[:, i+1])
+        plt.legend(bbox_to_anchor=(1.2, .5))
+        plt.xlabel('$t$')
+        plt.tick_params(axis='x', labelbottom='off')
+        plt.ylabel('$P(action = a)$');
 
     def run(self,
             actions: list,
@@ -60,6 +88,7 @@ class SoftMax(object):
 
         Returns:
             trace (np.ndarray): record of action allocation over time
+
             regret_trace (np.ndarray): record of regret over time
         '''
         if track_regret and (best_action is None):
@@ -78,7 +107,8 @@ class SoftMax(object):
             self.update(chosen_arm, reward)
             if step % trace_interval == 0:
                 trace[int(step/trace_interval), :] = self.get_probs()
-        return trace, np.cumsum(regret_trace_
+        self.action_trace = trace
+        self.regret_trace = np.cumsum(regret_trace)
 
     def state_report(self, action_labels=None):
         '''Prettily prints bandit state.'''
