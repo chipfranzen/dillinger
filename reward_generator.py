@@ -13,10 +13,13 @@ class RewardGenerator(object):
     '''Initializes a reward generator.
 
     Args:
-        min_price (float): the lowest price to be offered
-        max_price (float): the highest price to be offered
-        n_price_points (int): the number of price points to be offered
-        seed (int): seed to set the random state
+        min_price (float): The lowest price to be offered.
+
+        max_price (float): The highest price to be offered.
+
+        n_price_points (int): The number of price points to be offered.
+
+        seed (int): Seed to set the random state.
     '''
     def __init__(self,
                  min_price: float,

@@ -1,10 +1,11 @@
-"""Gaussian Processes for Regression and Bayesian Optimization"""
+"""1-D Gaussian Processes for Regression and Bayesian Optimization"""
 
 # Author: Charles Franzen
 # License: MIT
 
 import numpy as np
 import numpy.linalg as LA
+import pandas as pd
 import maplotlib.pyplot as plt
 
 import kernel_functions as kern
@@ -12,7 +13,22 @@ import kernel_functions as kern
 
 # main Gaussian Process class, with sample and fit methods.
 class GaussianProcess:
-    def __init__(self, domain, kernel_function, kernel_args=None, noise=1):
+    '''Gaussian Processes for Regression.
+
+    Args:
+        domain (ndarray): Points in the domain.
+
+        kernel_function (string or Kernel):
+            Kernel to be used for covariance matrices. Can be a string
+            specifying a kernel function or a Kernel instance.
+
+        kernel_args (dict):
+            Dictionary of keyword arguments to pass the the kernel function.
+
+        noise (float): Gaussan noise assumed in observations.
+    '''
+    def __init__(self, domain: np.ndarray, kernel_function,
+                 kernel_args=None, noise=1.):
         kernel_function = kern._kernel_dict[kernel_function]
         self.domain = domain
         self.domain.shape = -1, 1
@@ -29,15 +45,19 @@ class GaussianProcess:
         self.obs = None
 
     def expected_improvement(self):
-        # see equations (16) and (17)
-        obs_df = obs = pd.DataFrame(GP.obs, columns=['x', 'y'])
+        '''Expected improvement over the domain.
+
+        Returns:
+            ei (ndarray):
+                Expected improvement values at each point in the domain.
+        '''
+        obs_df = pd.DataFrame(GP.obs, columns=['x', 'y'])
+        # mean observation at each point in the domain
         mean_obs = obs_df.groupby('x').mean()
-        best_val = obs.y.max()
-        # see equation (16)
+        best_val = means_obs.y.max()
+        # EI calculation
         sigma = np.sqrt(np.diag(self.K))
         gamma = (self.μ.flatten() - best_val) / sigma
-
-        # see equation (17)
         ei = sigma * (gamma * stats.norm.cdf(gamma) + stats.norm.pdf(gamma))
         return ei
 

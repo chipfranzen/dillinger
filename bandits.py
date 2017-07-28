@@ -9,7 +9,23 @@ import seaborn as sns
 
 
 class SoftMax(object):
-    '''The softmax bandit algorithm.'''
+    '''The softmax bandit algorithm.
+
+    Args:
+        n_arms (int): Number of arms in the bandit
+
+        counts (ndarray):
+            Number of times each arm has been pulled. Useful for starting a new
+            bandit with observations from a previous bandit.
+
+        values (ndarray):
+            Average reward of each arm. Also useful for starting a new bandit
+            with previous observations.
+
+        tau_scale (int):
+            Initial value for the temperature parameter. Larger values mean
+            that the bandit will act more randomly for longer.
+    '''
     def __init__(self, n_arms: int, counts=None, values=None, tau_scale=1e3):
         self._t = 1
         self.tau_scale = tau_scale
@@ -70,24 +86,21 @@ class SoftMax(object):
         '''Bandits over the given actions on the given reward generator.
 
         Args:
-            actions: A list of actions to be considered. Entries should be
-                     indices for actions in the reward generator.
+            actions (list):
+                A list of actions to be considered. Entries should be indices
+                for actions in the reward generator.
 
             reward_generator: A RewardGenerator instance.
 
-            n_steps: Number of time steps to run the bandit.
+            n_steps (int): Number of time steps to run the bandit.
 
-            regret: If True, tracks the regret of the bandit. If True, a best
-                    action must be provided.
+            regret (bool):
+                If True, tracks the regret of the bandit. If True, a best
+                action must be provided.
 
-            best_action: Index of the best action for regret tracking.
+            best_action (int): Index of the best action for regret tracking.
 
-            trace_count: Number of entries in the trace.
-
-        Returns:
-            trace (np.ndarray): record of action allocation over time
-
-            regret_trace (np.ndarray): record of regret over time
+            trace_count (int): Number of entries in the trace.
         '''
         if track_regret and (best_action is None):
             raise RuntimeError('best_action must be provided to track regret')
