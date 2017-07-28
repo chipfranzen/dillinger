@@ -10,6 +10,14 @@ from scipy import stats
 
 
 class RewardGenerator(object):
+    '''Initializes a reward generator.
+
+    Args:
+        min_price (float): the lowest price to be offered
+        max_price (float): the highest price to be offered
+        n_price_points (int): the number of price points to be offered
+        seed (int): seed to set the random state
+    '''
     def __init__(self,
                  min_price: float,
                  max_price: float,
@@ -51,7 +59,7 @@ class RewardGenerator(object):
         plt.legend()
 
     def pull_arm(self, arm_index: int) -> float:
-        '''Returns a pull from a multi-armed bandit
+        '''Returns a pull from a multi-armed bandit.
 
         Args:
             arm_index: index of the arm to be pulled
