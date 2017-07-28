@@ -7,10 +7,13 @@ import numpy as np
 import numpy.linalg as LA
 import maplotlib.pyplot as plt
 
+import kernel_functions as kern
+
 
 # main Gaussian Process class, with sample and fit methods.
 class GaussianProcess:
     def __init__(self, domain, kernel_function, kernel_args=None, noise=1):
+        kernel_function = kern._kernel_dict[kernel_function]
         self.domain = domain
         self.domain.shape = -1, 1
         self.n = np.prod(domain.shape)
@@ -184,73 +187,6 @@ class GaussianProcess:
         # get next point to sample
         ei = self.expected_improvement()
         return np.argmax(ei)
-
-
-# define some kernel functions
-def rational_quadratic_kernel(x, y, sigma=1, ell=1, alpha=1):
-    return sigma**2 * (1 + ((x - y)**2) / (2 * alpha * ell**2))**-alpha
-
-
-def sq_exp_kernel(x, y, sigma=1, ell=1):
-    return sigma**2 * np.exp(-(x - y)**2 / (2 * ell**2))
-
-
-def linear_kernel(x, y, sigma_intercept=0, sigma_slope=1, c=0):
-    return sigma_intercept**2 + sigma_slope**2 * (x - c) * (y - c)
-
-
-def brownian_kernel(x, y):
-    return np.minimum(x, y)
-
-
-def abs_exp_kernel(x, y):
-    return np.exp(-1 * np.abs(x - y))
-
-
-def periodic_kernel(x, y, sigma=1, ell=1, p=1):
-    return sigma**2 *
-    np.exp(-2 * np.sin(np.pi * np.abs(x - y) / p)**2 / ell**2)
-
-
-def locally_periodic_kernel(x, y, sigma=1, ell=1, p=1):
-    return sigma**2 *
-    np.exp(-2 * np.sin(np.pi * np.abs(x - y) / p)**2 / ell**2) *
-    np.exp(-(x - y)**2 / (2 * ell**2))
-
-
-def symmetric_kernel(x, y):
-    return np.exp(-min(np.abs(x - y), np.abs(x + y))**2)
-
-
-def constant_kernel(x, y):
-    return .5
-
-
-def polynomial_kernel(x, y):
-    return (x * y)**3
-
-
-def matern_32(x, y, ell=1):
-    r = np.sqrt(np.sum((x / ell - y / ell)**2))
-    term1 = 1 + np.sqrt(3) * r
-    term2 = np.exp(-np.sqrt(3) * r)
-    return term1 * term2
-
-
-def matern_52(x, y, ell=1):
-    r = np.sqrt(np.sum((x - y)**2))
-    term1 = 1 + np.sqrt(5) * r / ell + 5 * r**2 / (3 * ell**2)
-    term2 = np.exp(-np.sqrt(5) * r / ell)
-    return term1 * term2
-
-
-def ornstein_uhlenbeck(x, y, ell=1):
-    r = np.sqrt(np.sum((x - y)**2))
-    return np.exp(-r / ell)
-
-
-def greens_kernel(x, y):
-    return np.minimum(x, y) - x * y
 
 
 # function to create covariance matrices
