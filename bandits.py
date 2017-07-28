@@ -10,7 +10,7 @@ import seaborn as sns
 
 class SoftMax(object):
     '''The softmax bandit algorithm.'''
-    def __init__(self, counts=None, values=None, tau_scale=1e3):
+    def __init__(self, n_arms: int, counts=None, values=None, tau_scale=1e3):
         self._t = 1
         self.tau_scale = tau_scale
         self.action_trace = None
@@ -20,9 +20,9 @@ class SoftMax(object):
             self._values = np.array(values, dtype=float)
             self.n_arms = len(self._counts)
         else:
-            self._counts = counts
-            self._values = values
-            self.n_arms = 0
+            self._counts = np.zeros(n_arms, dtype=int)
+            self._values = np.ones(n_arms, dtype=float)
+            self.n_arms = n_arms
 
     def get_probs(self):
         '''Returns probabilites according to the softmax function.'''
@@ -32,35 +32,33 @@ class SoftMax(object):
         probs = np.array([np.exp(v / tau) / z for v in self._values])
         return probs
 
-    def initialize(self, n_arms: int):
-        '''Initializes a blank bandit.'''
-        self._counts = np.zeros(n_arms, dtype=int)
-        self._values = np.ones(n_arms, dtype=float)
-        self.n_arms = n_arms
-
-    def plot_action_trace(self, best_action=None):
+    def plot_action_trace(self, best_action=None, action_labels=None):
         '''Plots action allocation over time'''
+        if action_labels is None:
+            action_labels = ['action' + str(i) for i in range(self.n_arms)]
         if self.action_trace is None:
             raise RuntimeError('The bandit has not been run.')
         trace_count = self.action_trace.shape[0]
-        sns.set_palette('cubehelix', trace_count)
+        sns.set_palette('cubehelix', len(self._values))
         cum_trace = self.action_trace.cumsum(axis=1)
-        plt.fill_between(np.arange(trace_count), 0, cum_trace[:, 0])
-        for i in range(mab.n_price_points-1):
+        plt.fill_between(np.arange(trace_count), 0, cum_trace[:, 0],
+                         label=action_labels[0])
+        for i in range(len(self._values) - 1):
             if i == best_action:
                 plt.fill_between(np.arange(trace_count),
                                  cum_trace[:, i],
-                                 cum_trace[:, i+1],
+                                 cum_trace[:, i + 1],
                                  color='r',
                                  label='best action')
             else:
                 plt.fill_between(np.arange(trace_count),
                                  cum_trace[:, i],
-                                 cum_trace[:, i+1])
+                                 cum_trace[:, i + 1],
+                                 label=action_labels[i + 1])
         plt.legend(bbox_to_anchor=(1.2, .5))
         plt.xlabel('$t$')
         plt.tick_params(axis='x', labelbottom='off')
-        plt.ylabel('$P(action = a)$');
+        plt.ylabel('$P(action = a)$')
 
     def run(self,
             actions: list,
@@ -98,17 +96,20 @@ class SoftMax(object):
         regret_trace = np.zeros(1)
 
         # run bandit
+        print('running bandit...')
         for step in range(n_steps):
             chosen_arm = self.select_arm()
-            reward = reward_generator[chosen_arm]
+            reward = reward_generator[actions[chosen_arm]]
             if track_regret:
                 regret = reward_generator[best_action] - reward
                 regret_trace = np.append(regret_trace, regret)
             self.update(chosen_arm, reward)
             if step % trace_interval == 0:
-                trace[int(step/trace_interval), :] = self.get_probs()
+                print('step {} complete'.format(step))
+                trace[int(step / trace_interval), :] = self.get_probs()
         self.action_trace = trace
         self.regret_trace = np.cumsum(regret_trace)
+        print('bandit run complete')
 
     def state_report(self, action_labels=None):
         '''Prettily prints bandit state.'''
