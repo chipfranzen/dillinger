@@ -2,11 +2,12 @@
 
 # Author: Charles Franzen
 # License: MIT
+from functools import partial
 
 import numpy as np
 import numpy.linalg as LA
 import pandas as pd
-import maplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 import kernel_functions as kern
 
