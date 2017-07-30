@@ -122,7 +122,7 @@ class Kernel:
     def __init__(self, theta):
         pass
 
-    def covariance(self, x, y):
+    def covariance(self, x, x_prime):
         pass
 
     def log_marginal_likelihood(self, x, y, noise=.1):
@@ -153,46 +153,97 @@ class Kernel:
 
 
 class PeriodicKernel(Kernel):
-    def __init__(self, sigma=1., l=1., p=1.):
+    '''Periodic Kernel function for GP covariance matrices.
+
+    Args:
+        sigma: variance scale
+
+        ell: lengthscale
+
+        p: period length
+    '''
+    def __init__(self, sigma=1., ell=1., p=1.):
         self.sigma = sigma
-        self.l = l
+        self.ell = ell
         self.p = p
 
-    def covariance(self, x, y):
-        # see equation (9)
-        return self.sigma**2 * np.exp(-2*np.sin(np.pi*np.abs(x-y)/self.p)**2/self.l**2)
+    def covariance(self, x, x_prime):
+        '''Covariance between two points'''
+        r = LA.norm(x - x_prime)
+        return self.sigma**2 * \
+            np.exp(-2 * np.sin(np.pi * r / self.p)**2 / self.ell**2)
 
     def grad_log_marginal_likelihood(self, x, y):
-        # see equation (10)
-        d_K_d_sigma = cov_mat(lambda u, v: 2*self.sigma*np.exp((-2*np.sin(np.pi*np.abs(u-v)/self.p)**2)/self.l**2), x)
-        # see equation (11)
-        d_K_d_p = cov_mat(lambda u, v: (self.sigma**2) * np.exp((-2*np.sin(np.pi*np.abs(u-v)/self.p)**2)/self.l**2) * \
-                          (2*np.pi*np.abs(u-v)*np.sin(np.pi*np.abs(u-v)/self.p)) / (self.l**2 * self.p**2), x)
-        # see equation (12)
-        d_K_d_l = cov_mat(lambda u, v: (self.sigma**2)*np.exp((-2*np.sin(np.pi*np.abs(u-v)/self.p)**2)/self.l**2) * \
-                         ((4*np.sin(np.pi*np.abs(u-v)/self.p)**2)/self.l**3), x)
+        '''Gradient of the marginal likelihood
 
-        # see equation (8)
+        Args:
+            x (ndarray): Data points x.
+
+            y (ndarray): Noisy targets y.
+
+        Returns:
+            grad (ndarray): Gradient of the log marginal likelihood.
+        '''
+        d_K_d_sigma = cov_mat(lambda u, v: 2 * self.sigma *
+                              np.exp((-2 * np.sin(np.pi * np.abs(u - v) /
+                                                  self.p)**2) / self.ell**2),
+                              x, x)
+        d_K_d_p = cov_mat(lambda u, v: (self.sigma**2) *
+                          np.exp((-2 * np.sin(np.pi * np.abs(u - v) /
+                                              self.p)**2) / self.ell**2) *
+                          (2 * np.pi * np.abs(u - v) *
+                           np.sin(np.pi * np.abs(u - v) / self.p)) /
+                          (self.ell**2 * self.p**2), x, x)
+        d_K_d_l = cov_mat(lambda u, v: (self.sigma**2) *
+                          np.exp((-2 * np.sin(np.pi * np.abs(u - v) /
+                                              self.p)**2) / self.ell**2) *
+                          ((4 * np.sin(np.pi * np.abs(u - v) / self.p)**2) /
+                          self.ell**3), x, x)
+
         K = cov_mat(self.covariance, x, x)
-        K = K + .1*np.eye(len(y))
+        K = K + .1 * np.eye(len(y))
         K_inv = LA.inv(K)
         alpha = K_inv.dot(y)
         term1 = alpha.dot(alpha.T) - K_inv
 
-        d_d_sigma = (1/2)*np.trace(term1.dot(d_K_d_sigma))
-        d_d_p = (1/2)*np.trace(term1.dot(d_K_d_p))
-        d_d_l = (1/2)*np.trace(term1.dot(d_K_d_l))
+        d_d_sigma = (1 / 2) * np.trace(term1.dot(d_K_d_sigma))
+        d_d_p = (1 / 2) * np.trace(term1.dot(d_K_d_p))
+        d_d_l = (1 / 2) * np.trace(term1.dot(d_K_d_l))
+        grad = np.array([d_d_sigma, d_d_p, d_d_l])
+        return grad
 
-        return np.array([d_d_sigma, d_d_p, d_d_l])
+    def optimize_params(self, x, y,
+                        n_steps=100,
+                        learning_rate=.001,
+                        momentum=.8,
+                        n_restarts=0):
+        '''Gradient ascent to optimize kernel parameters.
 
-    def optimize_params(self, x, y, n_steps=100, learning_rate=.001, momentum=.8, n_restarts=0):
+        Args:
+            x (ndarray): Data points x.
+
+            y (ndarray): Noisy targets y.
+
+            n_steps (int): Number of iterations to run gradient ascent.
+
+            learning_rate (float): Step size.
+
+            n_restarts (int): Number of random restarts for gradient ascent.
+
+        Returns:
+            best_trace (list):
+                Log marginal likelihood values at each step of the best random
+                restart.
+
+            best_params (ndarray): Best parameters found by the optimizer.
+        '''
         domain_size = x.max() - x.min()
         best_log_likelihood = -np.inf
         best_params = None
         best_trace = []
-        for j in range(n_restarts+1):
+        for j in range(n_restarts + 1):
             # random start for params
-            params = np.random.rand(3)*domain_size
+            params = np.random.rand(3) * domain_size
             trace = []
             update = 0
             for i in range(n_steps):
@@ -200,9 +251,9 @@ class PeriodicKernel(Kernel):
                 if any(params <= 0):
                     continue
                 grad = self.grad_log_marginal_likelihood(x, y)
-                update = learning_rate*grad + momentum*update
+                update = learning_rate * grad + momentum * update
                 params += update
-                self.sigma, self.p, self.l = params
+                self.sigma, self.p, self.ell = params
                 trace.append(self.log_marginal_likelihood(x, y))
             if trace[-1] > best_log_likelihood:
                 best_params = params
