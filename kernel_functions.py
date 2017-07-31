@@ -117,7 +117,7 @@ _kernel_dict = {
 }
 
 
-class Kernel:
+class Kernel(object):
     '''Base class for kernel functions.'''
     def __init__(self, theta):
         pass
@@ -171,7 +171,7 @@ class PeriodicKernel(Kernel):
         '''Covariance between two points'''
         r = LA.norm(x - x_prime)
         return self.sigma**2 * \
-            np.exp(-2 * np.sin(np.pi * r / self.p)**2 / self.ell**2)
+            np.exp(-2 * (np.sin(np.pi * r / self.p) / self.ell)**2)
 
     def grad_log_marginal_likelihood(self, x, y):
         '''Gradient of the marginal likelihood
@@ -192,7 +192,7 @@ class PeriodicKernel(Kernel):
                           np.exp((-2 * np.sin(np.pi * np.abs(u - v) /
                                               self.p)**2) / self.ell**2) *
                           (2 * np.pi * np.abs(u - v) *
-                           np.sin(np.pi * np.abs(u - v) / self.p)) /
+                           np.cos(np.pi * np.abs(u - v) / self.p)) /
                           (self.ell**2 * self.p**2), x, x)
         d_K_d_l = cov_mat(lambda u, v: (self.sigma**2) *
                           np.exp((-2 * np.sin(np.pi * np.abs(u - v) /
@@ -248,7 +248,7 @@ class PeriodicKernel(Kernel):
             update = 0
             for i in range(n_steps):
                 # gradient ascent loop
-                if any(params <= 0):
+                if -1 in np.sign(params):
                     continue
                 grad = self.grad_log_marginal_likelihood(x, y)
                 update = learning_rate * grad + momentum * update
