@@ -263,15 +263,33 @@ class PeriodicKernel(Kernel):
 
 
 class SqExpKernel(Kernel):
+    '''Squared Exponential Kernel function for GP covariance matrices.
+
+    Args:
+        sigma: variance scale
+
+        ell: lengthscale
+    '''
     def __init__(self, sigma=1., ell=1.):
         self.sigma = sigma
         self.ell = ell
 
     def covariance(self, x, y):
+        '''Covariance between two points'''
         r = LA.norm(x - y)
         return self.sigma**2 * np.exp(-r**2 / self.ell**2)
 
     def grad_log_marginal_likelihood(self, x, y):
+        '''Gradient of the marginal likelihood
+
+        Args:
+            x (ndarray): Data points x.
+
+            y (ndarray): Noisy targets y.
+
+        Returns:
+            grad (ndarray): Gradient of the log marginal likelihood.
+        '''
         d_K_d_sigma = cov_mat(lambda u, v: 2 * self.sigma *
                               np.exp((-LA.norm(u - v)**2) /
                                      (2 * self.ell**2)), x, x)
@@ -294,6 +312,26 @@ class SqExpKernel(Kernel):
                         learning_rate=.001,
                         momentum=.8,
                         n_restarts=0):
+        '''Gradient ascent to optimize kernel parameters.
+
+        Args:
+            x (ndarray): Data points x.
+
+            y (ndarray): Noisy targets y.
+
+            n_steps (int): Number of iterations to run gradient ascent.
+
+            learning_rate (float): Step size.
+
+            n_restarts (int): Number of random restarts for gradient ascent.
+
+        Returns:
+            best_trace (list):
+                Log marginal likelihood values at each step of the best random
+                restart.
+
+            best_params (ndarray): Best parameters found by the optimizer.
+        '''
         domain_size = x.max() - x.min()
         best_log_likelihood = -np.inf
         best_params = None
@@ -307,6 +345,7 @@ class SqExpKernel(Kernel):
             for i in range(n_steps):
                 # gradient ascent
                 if -1 in np.sign(params):
+                    # reset if params go negative
                     params = np.random.rand(2) * domain_size
                     continue
                 grad = self.grad_log_marginal_likelihood(x, y)
