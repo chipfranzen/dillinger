@@ -249,12 +249,71 @@ class PeriodicKernel(Kernel):
             for i in range(n_steps):
                 # gradient ascent loop
                 if -1 in np.sign(params):
+                    params = np.random.rand(3) * domain_size
                     continue
                 grad = self.grad_log_marginal_likelihood(x, y)
                 update = learning_rate * grad + momentum * update
                 params += update
                 self.sigma, self.p, self.ell = params
                 trace.append(self.log_marginal_likelihood(x, y))
+            if trace[-1] > best_log_likelihood:
+                best_params = params
+                best_trace = trace
+        return best_trace, best_params
+
+
+class SqExpKernel(Kernel):
+    def __init__(self, sigma=1., ell=1.):
+        self.sigma = sigma
+        self.ell = ell
+
+    def covariance(self, x, y):
+        r = LA.norm(x - y)
+        return self.sigma**2 * np.exp(-r**2 / self.ell**2)
+
+    def grad_log_marginal_likelihood(self, x, y):
+        d_K_d_sigma = cov_mat(lambda u, v: 2 * self.sigma *
+                              np.exp((-LA.norm(u - v)**2) /
+                                     (2 * self.ell**2)), x, x)
+        d_K_d_l = cov_mat(lambda u, v: (self.sigma**2) *
+                          np.exp((-LA.norm(u - v)**2) / (2 * self.ell**2)) *
+                          ((LA.norm(u - v)**2) / self.ell**3), x, x)
+        K = cov_mat(self.covariance, x, x)
+        K = K + .01 * np.eye(len(y))
+        K_inv = LA.inv(K)
+        alpha = K_inv.dot(y)
+        term1 = alpha.dot(alpha.T) - K_inv
+
+        d_d_sigma = (1 / 2) * np.trace(term1.dot(d_K_d_sigma))
+        d_d_l = (1 / 2) * np.trace(term1.dot(d_K_d_l))
+
+        return np.array([d_d_sigma, d_d_l])
+
+    def optimize_params(self, x, y,
+                        n_steps=100,
+                        learning_rate=.001,
+                        momentum=.8,
+                        n_restarts=0):
+        domain_size = x.max() - x.min()
+        best_log_likelihood = -np.inf
+        best_params = None
+        best_trace = []
+        for j in range(n_restarts + 1):
+            # random parameter initialization
+            params = np.random.rand(2) * domain_size
+            trace = []
+            # gradient update
+            update = 0
+            for i in range(n_steps):
+                # gradient ascent
+                if -1 in np.sign(params):
+                    params = np.random.rand(2) * domain_size
+                    continue
+                grad = self.grad_log_marginal_likelihood(x, y)
+                update = learning_rate * grad + momentum * update
+                params += update
+                self.sigma, self.ell = params
+                trace.append(self.log_marginal_likelihood(x, y, noise=.1))
             if trace[-1] > best_log_likelihood:
                 best_params = params
                 best_trace = trace
