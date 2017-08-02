@@ -125,7 +125,7 @@ class Kernel(object):
     def covariance(self, x, x_prime):
         pass
 
-    def log_marginal_likelihood(self, x, y, noise=.1):
+    def log_marginal_likelihood(self, x, y, noise=.01):
         '''Log marginal likelihood of a kernel function and observations.
 
         Args:
@@ -277,7 +277,7 @@ class SqExpKernel(Kernel):
     def covariance(self, x, y):
         '''Covariance between two points'''
         r = LA.norm(x - y)
-        return self.sigma**2 * np.exp(-r**2 / self.ell**2)
+        return self.sigma**2 * np.exp(-.5 * r**2 / self.ell**2)
 
     def grad_log_marginal_likelihood(self, x, y):
         '''Gradient of the marginal likelihood
@@ -338,7 +338,7 @@ class SqExpKernel(Kernel):
         best_trace = []
         for j in range(n_restarts + 1):
             # random parameter initialization
-            params = np.random.rand(2) * domain_size
+            params = np.random.rand(2)
             trace = []
             # gradient update
             update = 0
@@ -346,7 +346,7 @@ class SqExpKernel(Kernel):
                 # gradient ascent
                 if -1 in np.sign(params):
                     # reset if params go negative
-                    params = np.random.rand(2) * domain_size
+                    params = np.random.rand(2)
                     continue
                 grad = self.grad_log_marginal_likelihood(x, y)
                 update = learning_rate * grad + momentum * update
