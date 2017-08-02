@@ -8,6 +8,7 @@ import numpy as np
 import numpy.linalg as LA
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy import stats
 
 import kernel_functions as kern
 
@@ -42,7 +43,7 @@ class GaussianProcess:
             self.kernel = kernel_function
         self.μ = np.zeros(self.n)
         self.μ.shape = -1, 1
-        self.K = cov_mat(self.kernel, self.domain, self.domain)
+        self.K = kern.cov_mat(self.kernel, self.domain, self.domain)
         self.obs = None
 
     def expected_improvement(self):
@@ -52,10 +53,10 @@ class GaussianProcess:
             ei (ndarray):
                 Expected improvement values at each point in the domain.
         '''
-        obs_df = pd.DataFrame(GP.obs, columns=['x', 'y'])
+        obs_df = pd.DataFrame(self.obs, columns=['x', 'y'])
         # mean observation at each point in the domain
         mean_obs = obs_df.groupby('x').mean()
-        best_val = means_obs.y.max()
+        best_val = mean_obs.y.max()
         # EI calculation
         sigma = np.sqrt(np.diag(self.K))
         gamma = (self.μ.flatten() - best_val) / sigma
@@ -78,10 +79,10 @@ class GaussianProcess:
         n_obs = x.shape[0]
 
         # create block matrix
-        K_X_X = cov_mat(self.kernel, x, x)
-        K_X_Xt = cov_mat(self.kernel, x, self.domain)
-        K_Xt_X = cov_mat(self.kernel, self.domain, x)
-        K_Xt_Xt = cov_mat(self.kernel, self.domain, self.domain)
+        K_X_X = kern.cov_mat(self.kernel, x, x)
+        K_X_Xt = kern.cov_mat(self.kernel, x, self.domain)
+        K_Xt_X = kern.cov_mat(self.kernel, self.domain, x)
+        K_Xt_Xt = kern.cov_mat(self.kernel, self.domain, self.domain)
 
         # get means
         shared_term = K_Xt_X.dot(LA.inv(K_X_X + self.noise**2 * np.eye(n_obs)))
@@ -208,14 +209,3 @@ class GaussianProcess:
         # get next point to sample
         ei = self.expected_improvement()
         return np.argmax(ei)
-
-
-# function to create covariance matrices
-def cov_mat(kernel, x, x_prime, **kwargs):
-    n = len(x)
-    m = len(x_prime)
-    C = np.zeros((n, m))
-    for i in range(n):
-        for j in range(m):
-            C[i, j] = kernel(x[i], x_prime[j], **kwargs)
-    return C
