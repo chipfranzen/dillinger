@@ -31,19 +31,30 @@ class GaussianProcess:
     '''
     def __init__(self, domain: np.ndarray, kernel_function,
                  kernel_args=None, noise=1.):
-        kernel_function = kern._kernel_dict[kernel_function]
         self.domain = domain
         self.domain.shape = -1, 1
         self.n = np.prod(domain.shape)
         self.noise = noise
-        if kernel_args:
-            self.kernel_args = kernel_args
-            self.kernel = partial(kernel_function, **kernel_args)
-        else:
-            self.kernel = kernel_function
+
+        if type(kernel_function) is str:
+            kernel_function = kern._kernel_dict[kernel_function]
+            self.kernel_obj = None
+            if kernel_args:
+                self.kernel_args = kernel_args
+                self.kernel = partial(kernel_function, **kernel_args)
+            else:
+                self.kernel = kernel_function
+        else: # for Kernel objects
+            if kernel_args:
+                self.kernel_args = kernel_args
+                self.kernel_obj = kernel_function(**kernel_args)
+            else:
+                self.kernel_obj = kernel_function()
+            self.kernel = self.kernel_obj.covariance
+
+        self.K = kern.cov_mat(self.kernel, self.domain, self.domain)
         self.μ = np.zeros(self.n)
         self.μ.shape = -1, 1
-        self.K = kern.cov_mat(self.kernel, self.domain, self.domain)
         self.obs = None
 
     def expected_improvement(self):
@@ -63,8 +74,18 @@ class GaussianProcess:
         ei = sigma * (gamma * stats.norm.cdf(gamma) + stats.norm.pdf(gamma))
         return ei
 
-    def fit(self, x, y, clear_obs=False):
-        # fit the GP using equations (4) and (5)
+    def fit(self, x, y, clear_obs=False, **optimizer_args):
+        '''Fit the GP to observed data
+
+        Args:
+            x (ndarray): domain values
+
+            y (ndarray): noisy observations
+
+            clear_obs (bool): if True, clears previously stored observations
+
+            optimizer_args: args to be passed to Kernel.optimize_params()
+        '''
         if clear_obs:
             self.obs = None
         if self.obs is not None:
@@ -77,6 +98,10 @@ class GaussianProcess:
         y = self.obs[:, 1]
         y.shape = -1, 1
         n_obs = x.shape[0]
+
+        if self.kernel_obj:
+            self.kernel_obj.optimize_params(x, y, **optimizer_args)
+            self.set_kernel_args(self.kernel_obj.params)
 
         # create block matrix
         K_X_X = kern.cov_mat(self.kernel, x, x)
@@ -203,7 +228,11 @@ class GaussianProcess:
 
     def set_kernel_args(self, kernel_args):
         self.kernel_args = kernel_args
-        self.kernel = partial(self.kernel, **kernel_args)
+        if self.kernel_obj:
+            self.kernel_obj.set_params(**kernel_args)
+            self.kernel = self.kernel_obj.covariance
+        else:
+            self.kernel = partial(self.kernel, **kernel_args)
 
     def x_next(self):
         # get next point to sample

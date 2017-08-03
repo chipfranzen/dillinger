@@ -118,9 +118,13 @@ _kernel_dict = {
 
 
 class Kernel(object):
-    '''Base class for kernel functions.'''
-    def __init__(self, theta):
-        pass
+    '''Base class for kernel functions.
+
+    Args:
+        theta: kwargs specifying parameter values for the Kernel
+    '''
+    def __init__(self, **theta):
+        self.params = dict(theta)
 
     def covariance(self, x, x_prime):
         pass
@@ -151,6 +155,9 @@ class Kernel(object):
     def optimize_params(self, x, y):
         pass
 
+    def set_params(self, **theta):
+        self.params = dict(theta)
+
 
 class PeriodicKernel(Kernel):
     '''Periodic Kernel function for GP covariance matrices.
@@ -163,15 +170,16 @@ class PeriodicKernel(Kernel):
         p: period length
     '''
     def __init__(self, sigma=1., ell=1., p=1.):
-        self.sigma = sigma
-        self.ell = ell
-        self.p = p
+        self.params = {'sigma': sigma, 'ell': ell, 'p': p}
 
     def covariance(self, x, x_prime):
         '''Covariance between two points'''
+        sigma = self.params['sigma']
+        ell = self.params['ell']
+        p = self.params['p']
+
         r = LA.norm(x - x_prime)
-        return self.sigma**2 * \
-            np.exp(-2 * (np.sin(np.pi * r / self.p) / self.ell)**2)
+        return sigma**2 * np.exp(-2 * (np.sin(np.pi * r / p) / ell)**2)
 
     def grad_log_marginal_likelihood(self, x, y):
         '''Gradient of the marginal likelihood
@@ -184,21 +192,25 @@ class PeriodicKernel(Kernel):
         Returns:
             grad (ndarray): Gradient of the log marginal likelihood.
         '''
-        d_K_d_sigma = cov_mat(lambda u, v: 2 * self.sigma *
+        sigma = self.params['sigma']
+        ell = self.params['ell']
+        p = self.params['p']
+
+        d_K_d_sigma = cov_mat(lambda u, v: 2 * sigma *
                               np.exp((-2 * np.sin(np.pi * np.abs(u - v) /
-                                                  self.p)**2) / self.ell**2),
+                                                  p)**2) / ell**2),
                               x, x)
-        d_K_d_p = cov_mat(lambda u, v: (self.sigma**2) *
+        d_K_d_p = cov_mat(lambda u, v: (sigma**2) *
                           np.exp((-2 * np.sin(np.pi * np.abs(u - v) /
-                                              self.p)**2) / self.ell**2) *
+                                              p)**2) / ell**2) *
                           (2 * np.pi * np.abs(u - v) *
-                           np.cos(np.pi * np.abs(u - v) / self.p)) /
-                          (self.ell**2 * self.p**2), x, x)
-        d_K_d_l = cov_mat(lambda u, v: (self.sigma**2) *
+                           np.cos(np.pi * np.abs(u - v) / p)) /
+                          (ell**2 * p**2), x, x)
+        d_K_d_l = cov_mat(lambda u, v: (sigma**2) *
                           np.exp((-2 * np.sin(np.pi * np.abs(u - v) /
-                                              self.p)**2) / self.ell**2) *
-                          ((4 * np.sin(np.pi * np.abs(u - v) / self.p)**2) /
-                          self.ell**3), x, x)
+                                              p)**2) / ell**2) *
+                          ((4 * np.sin(np.pi * np.abs(u - v) / p)**2) /
+                          ell**3), x, x)
 
         K = cov_mat(self.covariance, x, x)
         K = K + .1 * np.eye(len(y))
@@ -216,7 +228,8 @@ class PeriodicKernel(Kernel):
                         n_steps=100,
                         learning_rate=.001,
                         momentum=.8,
-                        n_restarts=0):
+                        n_restarts=0,
+                        return_vals=False):
         '''Gradient ascent to optimize kernel parameters.
 
         Args:
@@ -230,6 +243,10 @@ class PeriodicKernel(Kernel):
 
             n_restarts (int): Number of random restarts for gradient ascent.
 
+            return_vals (bool):
+                If True, returns the best params as a dict and trace of log
+                likelihoods.
+
         Returns:
             best_trace (list):
                 Log marginal likelihood values at each step of the best random
@@ -237,29 +254,36 @@ class PeriodicKernel(Kernel):
 
             best_params (ndarray): Best parameters found by the optimizer.
         '''
-        domain_size = x.max() - x.min()
         best_log_likelihood = -np.inf
         best_params = None
         best_trace = []
         for j in range(n_restarts + 1):
             # random start for params
-            params = np.random.rand(3) * domain_size
+            params = np.random.rand(3)
             trace = []
             update = 0
             for i in range(n_steps):
                 # gradient ascent loop
                 if -1 in np.sign(params):
-                    params = np.random.rand(3) * domain_size
+                    params = np.random.rand(3)
                     continue
                 grad = self.grad_log_marginal_likelihood(x, y)
                 update = learning_rate * grad + momentum * update
                 params += update
-                self.sigma, self.p, self.ell = params
+                self.set_params(sigma=params[0],
+                                ell=params[1],
+                                p=params[2])
                 trace.append(self.log_marginal_likelihood(x, y))
             if trace[-1] > best_log_likelihood:
                 best_params = params
                 best_trace = trace
-        return best_trace, best_params
+        best_params = {'sigma': best_params[0],
+                       'p': best_params[1],
+                       'ell': best_params[2]
+                       }
+        self.set_params(**best_params)
+        if return_vals:
+            return best_trace, best_params
 
 
 class SqExpKernel(Kernel):
@@ -271,13 +295,15 @@ class SqExpKernel(Kernel):
         ell: lengthscale
     '''
     def __init__(self, sigma=1., ell=1.):
-        self.sigma = sigma
-        self.ell = ell
+        self.params = {'sigma': sigma, 'ell': ell}
 
     def covariance(self, x, y):
         '''Covariance between two points'''
+        sigma = self.params['sigma']
+        ell = self.params['ell']
+
         r = LA.norm(x - y)
-        return self.sigma**2 * np.exp(-.5 * r**2 / self.ell**2)
+        return sigma**2 * np.exp(-.5 * r**2 / ell**2)
 
     def grad_log_marginal_likelihood(self, x, y):
         '''Gradient of the marginal likelihood
@@ -290,12 +316,15 @@ class SqExpKernel(Kernel):
         Returns:
             grad (ndarray): Gradient of the log marginal likelihood.
         '''
-        d_K_d_sigma = cov_mat(lambda u, v: 2 * self.sigma *
+        sigma = self.params['sigma']
+        ell = self.params['ell']
+
+        d_K_d_sigma = cov_mat(lambda u, v: 2 * sigma *
                               np.exp((-LA.norm(u - v)**2) /
-                                     (2 * self.ell**2)), x, x)
-        d_K_d_l = cov_mat(lambda u, v: (self.sigma**2) *
-                          np.exp((-LA.norm(u - v)**2) / (2 * self.ell**2)) *
-                          ((LA.norm(u - v)**2) / self.ell**3), x, x)
+                                     (2 * ell**2)), x, x)
+        d_K_d_l = cov_mat(lambda u, v: (sigma**2) *
+                          np.exp((-LA.norm(u - v)**2) / (2 * ell**2)) *
+                          ((LA.norm(u - v)**2) / ell**3), x, x)
         K = cov_mat(self.covariance, x, x)
         K = K + .01 * np.eye(len(y))
         K_inv = LA.inv(K)
@@ -311,7 +340,8 @@ class SqExpKernel(Kernel):
                         n_steps=100,
                         learning_rate=.001,
                         momentum=.8,
-                        n_restarts=0):
+                        n_restarts=0,
+                        return_vals=False):
         '''Gradient ascent to optimize kernel parameters.
 
         Args:
@@ -325,6 +355,10 @@ class SqExpKernel(Kernel):
 
             n_restarts (int): Number of random restarts for gradient ascent.
 
+            return_vals (bool):
+                If True, returns the best params as a dict and trace of log
+                likelihoods.
+
         Returns:
             best_trace (list):
                 Log marginal likelihood values at each step of the best random
@@ -332,7 +366,6 @@ class SqExpKernel(Kernel):
 
             best_params (ndarray): Best parameters found by the optimizer.
         '''
-        domain_size = x.max() - x.min()
         best_log_likelihood = -np.inf
         best_params = None
         best_trace = []
@@ -351,9 +384,12 @@ class SqExpKernel(Kernel):
                 grad = self.grad_log_marginal_likelihood(x, y)
                 update = learning_rate * grad + momentum * update
                 params += update
-                self.sigma, self.ell = params
+                self.set_params(sigma=params[0], ell=params[1])
                 trace.append(self.log_marginal_likelihood(x, y, noise=.1))
             if trace[-1] > best_log_likelihood:
                 best_params = params
                 best_trace = trace
-        return best_trace, best_params
+        best_params = {'sigma': best_params[0], 'ell': best_params[1]}
+        self.set_params(**best_params)
+        if return_vals:
+            return best_trace, best_params
