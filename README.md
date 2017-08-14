@@ -5,3 +5,7 @@ Dillinger is a guide to using Bayesian optimization to select new actions for mu
 This project is still very much under construction, as I'm adapting an existing project to make it more useable and accessible to those interested in applying Bayesian optimization to A/B tests or multi-armed bandit experiments.
 
 See `demos\` for examples of how to use this package.
+
+### Installation
+
+`pip install dillinger`
