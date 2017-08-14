@@ -10,7 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
 
-import kernel_functions as kern
+import dillinger.kernel_functions as kern
 
 
 # main Gaussian Process class, with sample and fit methods.
