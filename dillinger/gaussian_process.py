@@ -177,7 +177,7 @@ class GaussianProcess:
                          objective,
                          linestyle='dashed',
                          linewidth=3,
-                         c='y',
+                         c='g',
                          label='True objective')
             else:
                 obj_x = np.linspace(np.min(self.domain),
